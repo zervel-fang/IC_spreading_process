@@ -12,11 +12,12 @@ Edge_probability *Network ; //define the global vairance.
 int maxID = 0 , minID = 1000000 , len_of_edges = 0  , N ; // len_of_edges : the sum of edges , N : the size of network
 int *IndexTag , Seeds , *Chance_to_Infect , **Neighbor ,*Degree ; // Seeds: the choosed seeds, Neighbor, the neighbor of nodes.
 int **Neighbor_total_try , **Neighbor_sucess_Infect ; 
-float **Neighbor_weight , *Fstar, *Gstar, *Influence, *Susceptibility, *metric_3, *metric_4, *metric_5 ;
+float **Neighbor_weight , *Fstar, *Gstar, *Influence, *Susceptibility, *metric_3, *metric_4, *metric_5, *threshold_value ;
 void Input_edge_probability(char **argv) ;
 void Init() ;
 void Get_the_degree_and_neighbors_of_Node() ;
 int Run_IC_model(int k) ;
+int Run_LT_model(int k) ;
 void Free_the_parameter() ;
 void Output_Empirical_Real_pij(char **argv) ;
 void Output_Empirical_Fstar_Gstar(char **argv) ;
@@ -35,8 +36,20 @@ int main(int argn , char **argv)
 	FILE *fout ;
 	char f1[5]  = ".txt" ;
 	char f2[9]  = "results/"  ;
+	char *f3 ;
+	if (atoi(argv[3])==1)
+	{
+		f3 = (char*)calloc(3,sizeof(char)) ;
+		sprintf(f3,"%s","IC") ;
+	}
+	if (atoi(argv[3])==2)
+	{
+		f3 = (char*)calloc(3,sizeof(char)) ;
+		sprintf(f3,"%s","LT") ;
+	}	
+	
 	char *file =(char*)malloc((strlen(f1)+strlen(f2)+strlen(argv[1])+2)*sizeof(char)) ;
-	sprintf(file, "%s%s%s", f2, argv[1], f1) ;
+	sprintf(file, "%s%s_%s%s", f2, argv[1], f3, f1) ;
 	fout = fopen(file,"w") ;
 	for (int i = 0 ; i < N; i++)
 	{		printf("%d\n",i) ;
@@ -46,8 +59,14 @@ int main(int argn , char **argv)
 		 	while(count < atoi(argv[2]))
 		 	{	
 				Init()  ;  	
-				tmp = Run_IC_model(1)   ;  //返回结果是最终的影响力值。
-				sum = sum + tmp ;  
+				if(atoi(argv[3])==1){
+					tmp = Run_IC_model(1)   ;  //返回结果是最终的影响力值。
+					sum = sum + tmp ;
+				}
+				if(atoi(argv[3])==2){
+					tmp = Run_LT_model(1)   ;  //返回结果是最终的影响力值。
+					sum = sum + tmp ;
+				}
 				count++ ;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
 				Free_the_parameter() ;		 		
 			}
@@ -94,6 +113,8 @@ void Input_edge_probability(char **argv)
 	len_of_edges = count_lines ; 
 	//printf("length of edges are: %d\n",len_of_edges) ;
 	N = maxID - minID + 1 ;
+	
+  	threshold_value = (float*)malloc(N*sizeof(float)) ;	
 
 }
 
@@ -176,10 +197,57 @@ int Run_IC_model(int K)
 	}	
 	return Final_Influence-1 ;
 }
+int Run_LT_model(int k) 
+{
+	int tag = 0 , count_infected = 0 , count_infected1 = 0 ;
+	float p =0.0  ,p1 = 0.0 ;
+	for(int i = 0 ; i <k ;i++)
+	{
+		IndexTag[Seeds] = 1  ;
+		Chance_to_Infect[Seeds] = 1 ;
+	    
+	} 		
+	while(tag==0)
+	{	
+		for(int i = 0 ; i < N ; i++)
+		{   p = 0.0 ;
+			if(IndexTag[i]==0)
+			{
+				for(int ii = 0 ; ii < Degree[i] ; ii++)//遍历所有i的邻居 
+				{	if(IndexTag[Neighbor[i][ii]]==1&&Chance_to_Infect[Neighbor[i][ii]]==1)
+					{
+						p = p  + Neighbor_weight[i][ii] ;	
+					}		
+				}
+				if(p>threshold_value[i]) //p>p1
+				{
+					IndexTag[i] =  1 ;
+				}
+			}	
+		}
+		count_infected = 0 ;
+		for(int i = 0 ; i < N ; i++)
+		{
+			if(IndexTag[i]==1)
+				count_infected++ ;
+			if(IndexTag[i]==1&&Chance_to_Infect[i]==0)
+			{
+				Chance_to_Infect[i] = 1 ;
+			}
+		}
+		if(count_infected==count_infected1)
+			break ;
+		else
+			count_infected1 = count_infected ;	
+	}
+	return count_infected1 ;
+}
 void Init()
 {
 	IndexTag = (int*)calloc(N,sizeof(int)) ;
 	Chance_to_Infect = (int*)calloc(N,sizeof(int)) ; 	
+	for(int i = 0 ; i < N ; i++)
+  		threshold_value[i] = (float)(rand()%1000)/1000 ;
 	
 }
 void Output_Empirical_Real_pij(char **argv)
